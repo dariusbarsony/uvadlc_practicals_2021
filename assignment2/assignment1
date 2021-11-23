@@ -1,0 +1,74 @@
+legend: 
+!"important info to keep in mind"
+?"stuff that still needs to be looked up"
++"additional stuff that's required of you"
+:"thoughts/findings"
+
+assignment 2:
+- experiment with different levels of gaussian noise 
+q1.1(10 points):
+q1.2(15 points):
+
+report the test accuracies of ResNet-18 on the four provided corruption functions for different severities ( 1 to 5 ) (8 points)
+- gaussian noise
+- gaussian blur
+- contrast reduction
+- JPEG compression
+
++ test accuracy on the original test dataset
+!plot all accuracies with accuracy at the y-axis and severity on the x-axis
+
++ redo experiments(7 points);
+- VGG-11
+- VGG-11 w\ batch normalization
+- ResNet-34
+- DenseNet-121
+
+?for all different severities
+
+-- metrics; CE and RCE
+
+:deeper models, more regularization? batch normalization, less internal covariance shift?
+!lisa cluster
+
+################
+RNN's
+################
+?h(t) depends on all previous states of the hidden layer
+: gradient dl/dw_ph = dl/d_y_hat * dy_hat/dp_t * dp_t/dW_ph
+: gradient dl/dw_hh = dl/d_y_hat * dy_hat/dp_t * dp_t/dW_ph *\sumt_t'=0 (\productt_j=t'=1 dh_j/dh_j-1)*dh_t'/dW_hh
+:dW_hx, expressed accordingly
+
+?conceptually
+!question/video
+
+q2.1 (4 points):
+- a; expand dl_dW_hh (for t=3),:"to get myself familiar with what the equation entails"
+- b; what problems occur when training the network for a large number of time steps
+
+#############
+LSTM's
+#############
+q2.2 (8 points)
+- write down purpose of the gates
+- total number of trainable parameters as defined by the formula defined above
+
+#############
+LSTM's in Pytorch
+#############
+
+q2.3 (7 points):
+- implement lstm as specified by equations 8-13
+! no linear output mapping, yet
+! assume embedded input, variable sequence length and batch size
+
+! no high level pytorch funcs: 
+: not allowed: nn.Linear, nn.LSTM, nn.LSTMCell
+: allowed; nn.parameter, torch.sigmoid
+
+q2.4:
+! use embeddings to represent each character of the input sequence
+
+q2.4a, b, c
+
+
