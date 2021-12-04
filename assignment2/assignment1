@@ -5,9 +5,18 @@ legend:
 :"thoughts/findings"
 
 assignment 2:
-- experiment with different levels of gaussian noise 
+- experiment with different levels of gaussian noise
+
 q1.1(10 points):
-q1.2(15 points):
+- zero padding -- done
+- convolution forward -- done
+- convolution backward wrt W -- done
+- convolution backward wrt X -- larger or equal, some conditional, check with others
+- pooling backward -- corresponding value in grad pool where the max value, and zero otherwise. 
+
+#############
+vanilla CNN's
+#############
 
 report the test accuracies of ResNet-18 on the four provided corruption functions for different severities ( 1 to 5 ) (8 points)
 - gaussian noise
@@ -27,48 +36,41 @@ report the test accuracies of ResNet-18 on the four provided corruption function
 ?for all different severities
 
 -- metrics; CE and RCE
-
-:deeper models, more regularization? batch normalization, less internal covariance shift?
-!lisa cluster
-
-################
-RNN's
-################
-?h(t) depends on all previous states of the hidden layer
-: gradient dl/dw_ph = dl/d_y_hat * dy_hat/dp_t * dp_t/dW_ph
-: gradient dl/dw_hh = dl/d_y_hat * dy_hat/dp_t * dp_t/dW_ph *\sumt_t'=0 (\productt_j=t'=1 dh_j/dh_j-1)*dh_t'/dW_hh
-:dW_hx, expressed accordingly
-
-?conceptually
-!question/video
-
-q2.1 (4 points):
-- a; expand dl_dW_hh (for t=3),:"to get myself familiar with what the equation entails"
-- b; what problems occur when training the network for a large number of time steps
+! compare network architectures
+:"deeper models, more regularization? batch normalization, less internal covariance shift?"
 
 #############
-LSTM's
+tasks CNN
 #############
-q2.2 (8 points)
-- write down purpose of the gates
-- total number of trainable parameters as defined by the formula defined above
+- run
+	- job file -- done 
+	- conda -- done 
+	- python3 --model_name resnet18 --epochs 3 
+	
+q1.2(15 points):
+-- change flag for training or not -- done
 
-#############
-LSTM's in Pytorch
-#############
+- train model -- done
+	- average over batch size of valid/acc -- done
+	- length of dataloader -- done
+	- save model/load best model -- done
+	- return -- done
+	
+- evaluate model -- then
+	- copy validation loop -- done
+	- change variables -- done
+	- compute correct output -- done
+	- test workings -- done
+	
+- main -- later
+	- training -- done
+	- test model -- done
 
-q2.3 (7 points):
-- implement lstm as specified by equations 8-13
-! no linear output mapping, yet
-! assume embedded input, variable sequence length and batch size
-
-! no high level pytorch funcs: 
-: not allowed: nn.Linear, nn.LSTM, nn.LSTMCell
-: allowed; nn.parameter, torch.sigmoid
-
-q2.4:
-! use embeddings to represent each character of the input sequence
-
-q2.4a, b, c
-
-
+- test model -- now
+	- apply corruption -- done
+	-  for all corruptions: test model -- done
+	- write to results file -- done
+	- test model, vanilla -- done
+	
+__name__ main:
+	- add ce and rce metrics -- run for all different architectures

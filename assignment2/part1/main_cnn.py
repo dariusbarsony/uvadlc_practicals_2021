@@ -21,6 +21,7 @@ import os
 import json
 import argparse
 import numpy as np
+import pickle as pl
 
 import torch
 import torch.nn as nn
@@ -104,22 +105,55 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    
+
     # Load the datasets
-    pass
+    train_dataset, val_dataset = get_train_validation_set(data_dir)
+
+    train_dataloader = data.DataLoader(train_dataset, batch_size, shuffle=True)
+    val_dataloader = data.DataLoader(val_dataset, batch_size, shuffle=True)
 
     # Initialize the optimizers and learning rate scheduler. 
     # We provide a recommend setup, which you are allowed to change if interested.
     optimizer = torch.optim.SGD(model.parameters(), lr=lr,
                                 momentum=0.9, weight_decay=5e-4)
+
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[90, 135], gamma=0.1)
+    loss_module = nn.CrossEntropyLoss()
+
+    # set model to train mode
+    model.train()
+    best_acc = 0.0
     
-    # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    pass
-    
+    # Test best model on validation and test set
+    for e in range(epochs):
+        # train_acc = 0.0
+        valid_acc = 0.0
+
+        for data_inputs, data_labels in train_dataloader:
+            data_inputs = data_inputs.to(device)
+            data_labels = data_labels.to(device)
+
+            preds = model(data_inputs)
+            preds = preds.squeeze(dim=1)
+            loss = loss_module(preds, data_labels)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            scheduler.step()
+        
+        valid_acc = evaluate_model(model, val_dataloader, device)
+
+        # find best model
+        if best_acc < valid_acc:
+            torch.save(model.state_dict(), checkpoint_name)
+
+        print('VALID ACC: %.4f'%(valid_acc))
+
     # Load best model and return it.
-    pass
-    
+    model = torch.load_state_dict(checkpoint_name)
+
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -141,15 +175,30 @@ def evaluate_model(model, data_loader, device):
     Implement the evaluation of the model on the dataset.
     Remember to set the model in evaluation mode and back to training mode in the training loop.
     """
+
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    pass
+    model.eval()
+    model.to(device)
+
+    acc = 0.0
+    for data_inputs, data_labels in data_loader:
+        data_inputs = data_inputs.to(device)
+        data_labels = data_labels.to(device)
+
+        preds = model(data_inputs)
+        preds = preds.squeeze(dim=1)
+
+        acc += (preds.argmax(dim=-1) == data_labels).float().mean()
+    
+    # average over batches
+    accuracy = acc/len(data_loader)
+
     #######################
     # END OF YOUR CODE    #
     #######################
     return accuracy
-
 
 def test_model(model, batch_size, data_dir, device, seed):
     """
@@ -173,16 +222,35 @@ def test_model(model, batch_size, data_dir, device, seed):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+
     set_seed(seed)
     test_results = {}
-    pass
+    
+    # add 'vanilla' test result to overall results
+    test_dataset = get_test_set(data_dir)
+    test_dataloader = data.DataLoader(test_dataset, batch_size, shuffle=True, drop_last=True)
+    test_results[('vanilla', 'x')] = float(evaluate_model(model, test_dataloader, device))
+
+    augmentations = {'gaussian noise':gaussian_noise_transform, 'gaussian blur':gaussian_blur_transform, 'contrast':contrast_transform, 'jpeg':jpeg_transform}
+    severities = range(1, 6)
+
+    for aug in augmentations.keys():
+        for s in severities:
+
+            corruption = augmentations[aug](s)
+            test_dataset = get_test_set(data_dir, corruption)
+
+            test_dataloader = data.DataLoader(test_dataset, batch_size, shuffle=True, drop_last=True)
+            test_results[('{}'.format(aug), s)] = float(evaluate_model(model, test_dataloader, device))
+            return test_results
+
     #######################
     # END OF YOUR CODE    #
     #######################
     return test_results
 
 
-def main(model_name, lr, batch_size, epochs, data_dir, seed):
+def main(model_name, lr, batch_size, epochs, data_dir, seed, train=True, test=True, dump=True, show=False):
     """
     Function that summarizes the training and testing of a model.
 
@@ -205,15 +273,55 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+    
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
-    pass
+    
+    checkpoint_name = 'models/{}.pt'.format(model_name)
+
+    try:
+        model = torch.load(checkpoint_name)
+        print('existing model loaded')
+    except:
+        model = get_model(model_name)
+    
+    if train:
+
+        model.to(device)
+        model = train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device)
+    
+    if test:
+        test_results = test_model(model, batch_size, data_dir, device, seed)
+    
+    if dump:
+        import csv
+
+        # open the file in the write mode
+        f = open('results.csv', 'w')
+
+        header = ['corruption', 'severity', 'test result']
+        # create the csv writer
+        writer = csv.writer(f)
+        writer.writerow(header)
+        
+        for key in test_results.keys():
+
+            row = [key[0], key[1], test_results[key]]
+
+            # write a row to the csv file
+            writer.writerow(row)
+
+        # close the file
+        f.close()
+
+    if show:
+        results = open("results.pkl", "rb")
+        pl.load(results)
+        print(results)
+    
     #######################
     # END OF YOUR CODE    #
     #######################
-
-
-
 
 
 if __name__ == '__main__':

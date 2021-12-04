@@ -17,7 +17,7 @@
 import math
 import torch
 import torch.nn as nn
-
+from torchnlp.encoders.text import SpacyEncoder, pad_tensor
 
 class LSTM(nn.Module):
     """
@@ -37,10 +37,34 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.hidden_dim = lstm_hidden_dim
         self.embed_dim = embedding_size
+
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        # input gate
+        self.W_ix = nn.Parameter(torch.Tensor(embedding_size, lstm_hidden_dim))
+        self.W_ih = nn.Parameter(torch.Tensor(lstm_hidden_dim, lstm_hidden_dim))
+        self.b_i = nn.Parameter(torch.Tensor(lstm_hidden_dim))
+
+        # forget gate
+        self.W_fx = nn.Parameter(torch.Tensor(embedding_size, lstm_hidden_dim))
+        self.W_fh = nn.Parameter(torch.Tensor(lstm_hidden_dim, lstm_hidden_dim))
+        self.b_f = nn.Parameter(torch.Tensor(lstm_hidden_dim))
+
+        # candidate values
+        self.W_gx = nn.Parameter(torch.Tensor(embedding_size, lstm_hidden_dim))
+        self.W_gh = nn.Parameter(torch.Tensor(lstm_hidden_dim, lstm_hidden_dim))
+        self.b_g = nn.Parameter(torch.Tensor(lstm_hidden_dim)) 
+
+        # output gate
+        self.W_ox = nn.Parameter(torch.Tensor(embedding_size, lstm_hidden_dim))
+        self.W_oh = nn.Parameter(torch.Tensor(lstm_hidden_dim, lstm_hidden_dim))
+        self.b_o = nn.Parameter(torch.Tensor(lstm_hidden_dim))
+        
+        self.h_t = None
+        self.c_t = None
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -62,7 +86,12 @@ class LSTM(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        sigma = 1.0 / math.sqrt(self.hidden_dim)
+
+        for w in self.parameters():
+            w.data.uniform_(-sigma, sigma)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -80,12 +109,38 @@ class LSTM(nn.Module):
         The output needs to span all time steps, (not just the last one),
         so the output shape is [input length, batch size, hidden dimension].
         """
-        #
-        #
+        # device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        il, bs, _ = embeds.shape
+
+        hs = []
+
+        if not self.h_t and not self.c_t:
+            self.h_t = torch.zeros(bs, self.hidden_dim)
+            self.c_t = torch.zeros(bs, self.hidden_dim)
+
+        for t in range(il):
+            x_t = embeds[:, t, :]
+
+            i_t = torch.sigmoid(x_t @ self.W_ix + self.h_t @ self.W_ih + self.b_i)
+            f_t = torch.sigmoid(x_t @ self.W_fx + self.h_t @ self.W_fh + self.b_f)
+            o_t = torch.sigmoid(x_t @ self.W_ox + self.h_t @ self.W_oh + self.b_o)
+
+            g_t = torch.tanh(x_t @ self.W_gx + self.h_t @ self.W_gh + self.b_g)
+
+            c_t = g_t * i_t + c_t * f_t
+            h_t = torch.tanh(c_t) * o_t
+
+            hs.append(h_t.unsqueeze(0))
+        
+        hs = torch.cat(hs, dim=0)
+        hs = hs.transpose(0, 1).contiguous()
+
+        return hs
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -114,7 +169,16 @@ class TextGenerationModel(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        self.vocab_size = args.vocabulary_size
+        self.embed_size = args.embedding_size
+        self.hidden_size = args.lstm_hidden_dim
+                
+        self.model = LSTM(self.hidden_size, self.embed_size)
+        self.embedding = nn.Embedding(args.vocabulary_size + 1, self.embed_size)
+
+        self.fc1 = nn.Linear(self.embed_size, 2)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -131,10 +195,17 @@ class TextGenerationModel(nn.Module):
         apply the LSTM cell
         and linearly map to vocabulary size.
         """
+    
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        embedded_x = self.embedding(x)
+        x_ = self.model(embedded_x)
+        x_ = self.fc1(x_)
+
+        return x_
+
         #######################
         # END OF YOUR CODE    #
         #######################

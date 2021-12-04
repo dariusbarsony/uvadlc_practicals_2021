@@ -62,6 +62,7 @@ def train(args):
     # PUT YOUR CODE HERE  #
     #######################
     set_seed(args.seed)
+
     # Load dataset
     # The data loader returns pairs of tensors (input, targets) where inputs are the
     # input characters, and targets the labels, i.e. the text shifted by one.
@@ -69,12 +70,45 @@ def train(args):
     data_loader = DataLoader(dataset, args.batch_size, 
                              shuffle=True, drop_last=True, pin_memory=True,
                              collate_fn=text_collate_fn)
+    
     # Create model
-    model = ...
+    model = TextGenerationModel(args)
+    
     # Create optimizer
-    optimizer = ...
+    optimizer = optim.Adam(model.parameters(), lr=args.lr) 
+
     # Training loop
-    pass
+    
+    model.train()
+    best_acc = 0.0
+    
+    # Test best model on validation and test set
+    for e in range(args.num_epochs):
+        valid_acc = 0.0
+
+        for data_inputs, data_labels in data_loader:
+            data_inputs = data_inputs.to(args.device)
+            data_labels = data_labels.to(args.device)
+
+            preds = model(data_inputs)
+            preds = preds.squeeze(dim=1)
+            loss = loss_module(preds, data_labels)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        
+        valid_acc = evaluate_model(model, val_dataloader, device)
+
+        # find best model
+        if best_acc < valid_acc:
+            torch.save(model.state_dict(), checkpoint_name)
+
+        print('VALID ACC: %.4f'%(valid_acc))
+
+    # Load best model and return it.
+    model = torch.load_state_dict(checkpoint_name)
+
     #######################
     # END OF YOUR CODE    #
     #######################
