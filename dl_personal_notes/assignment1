@@ -1,0 +1,51 @@
+legend: 
+!"important info to keep in mind"
+?"stuff that still needs to be looked up"
++"additional stuff that's required of you"
+:"thoughts/findings"
+
+assignment 2:
+- experiment with different levels of gaussian noise
+
+q1.1(10 points):
+- zero padding -- done
+- convolution forward -- done
+- convolution backward wrt W -- done
+- convolution backward wrt X -- larger or equal, some conditional, check with others
+- pooling backward -- corresponding value in grad pool where the max value, and zero otherwise. 
+
+#############
+vanilla CNN's
+#############
+
+report the test accuracies of ResNet-18 on the four provided corruption functions for different severities ( 1 to 5 ) (8 points)
+- gaussian noise - done (15 epochs)
+- gaussian blur - done
+- contrast reduction - done
+- JPEG compression - done
+
++ test accuracy on the original test dataset - done
+!plot all accuracies with accuracy at the y-axis and severity on the x-axis
+
++ redo experiments(7 points);
+- VGG-11
+- VGG-11 w\ batch normalization
+- ResNet-34
+- DenseNet-121
+
+#############
+tasks CNN   #
+#############
+add loop for different architectures -- done
+compute CE and RCE with computed test accuracies -- solve problem of model not converging
+plot results
+ - read csv files: plot test accuracies of resnet18 
+	- for different corruption functions
+	- for different severities
+	- for different models, excluding vgg11_bn??
+
+compute CE and RCE for different models
+- Explain the trend you observe when comparing network architectures, 
+- deeper models, and using Batch Normalization.
+
+

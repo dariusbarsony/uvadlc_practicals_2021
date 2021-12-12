@@ -1,0 +1,35 @@
+################
+RNN's
+################
+
+################
+math
+################
+q2.1 (4 points):
+- a; expand dl_dW_hh (for t=3),:"to get myself familiar with what the equation entails" -- wrong, expansion is wrong
+- b; what problems occur when training the network for a large number of time steps -- with new intuition gaines by working with lstm
+, do i now know the answer?
+
+q2.2 (8 points)
+- write down purpose of the gates
+- total number of trainable parameters as defined by the formula defined above
+
+#############
+LSTM's
+#############
+
+#################
+LSTM's in Pytorch
+#################
+
+q2.4a:
+- tensorboard logging, vanilla
+
+q2.4b:
+- generate samples
+	- at three moments
+q2.4c:
+- implement softmax else
+
+
+

@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --time=04:00:00
 #SBATCH --mem=32000M
-#SBATCH --output=$HOME/uvadlc_practicals_2021/assignment2/slurm_output_%A.out
+#SBATCH --output=slurm_output_%A.out
 
 module purge
 module load 2021
@@ -17,4 +17,4 @@ module load Anaconda3/2021.05
 source activate dl2021
 
 # Run your code
-srun python3 -u main_cnn.py --epochs 1 --lr 0.05
+srun python3 -u train.py --txt_file assets/book_EN_democracy_in_the_US.txt

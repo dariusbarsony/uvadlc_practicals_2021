@@ -21,7 +21,9 @@ import os
 import json
 import argparse
 import numpy as np
+import pandas as pd
 import pickle as pl
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -110,7 +112,7 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     train_dataset, val_dataset = get_train_validation_set(data_dir)
 
     train_dataloader = data.DataLoader(train_dataset, batch_size, shuffle=True)
-    val_dataloader = data.DataLoader(val_dataset, batch_size, shuffle=True)
+    val_dataloader = data.DataLoader(val_dataset, batch_size, shuffle=True, drop_last=False)
 
     # Initialize the optimizers and learning rate scheduler. 
     # We provide a recommend setup, which you are allowed to change if interested.
@@ -121,13 +123,14 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     loss_module = nn.CrossEntropyLoss()
 
     # set model to train mode
-    model.train()
+    model.to(device)
     best_acc = 0.0
     
     # Test best model on validation and test set
     for e in range(epochs):
         # train_acc = 0.0
         valid_acc = 0.0
+        model.train()
 
         for data_inputs, data_labels in train_dataloader:
             data_inputs = data_inputs.to(device)
@@ -135,14 +138,17 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
 
             preds = model(data_inputs)
             preds = preds.squeeze(dim=1)
+
             loss = loss_module(preds, data_labels)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            scheduler.step()
         
+        # multistep LR
+        scheduler.step()
+        
+        # calculate accuracy
         valid_acc = evaluate_model(model, val_dataloader, device)
 
         # find best model
@@ -152,11 +158,15 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
         print('VALID ACC: %.4f'%(valid_acc))
 
     # Load best model and return it.
-    model = torch.load_state_dict(checkpoint_name)
+    try:
+        model.load_state_dict(torch.load(checkpoint_name))
+    except:
+        print('no saved model found')
 
     #######################
     # END OF YOUR CODE    #
     #######################
+
     return model
 
 
@@ -236,13 +246,13 @@ def test_model(model, batch_size, data_dir, device, seed):
 
     for aug in augmentations.keys():
         for s in severities:
-
             corruption = augmentations[aug](s)
             test_dataset = get_test_set(data_dir, corruption)
 
             test_dataloader = data.DataLoader(test_dataset, batch_size, shuffle=True, drop_last=True)
             test_results[('{}'.format(aug), s)] = float(evaluate_model(model, test_dataloader, device))
-            return test_results
+
+    return test_results
 
     #######################
     # END OF YOUR CODE    #
@@ -274,33 +284,40 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed, train=True, test=Tr
     # PUT YOUR CODE HERE  #
     #######################
     
+    # initialise device
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
     
+    # get checkpoint name
     checkpoint_name = 'models/{}.pt'.format(model_name)
-
+    
+    # check whether existing model exists
     try:
-        model = torch.load(checkpoint_name)
-        print('existing model loaded')
+        model = get_model(model_name)
+        model.load_state_dict(torch.load(checkpoint_name))
     except:
         model = get_model(model_name)
     
+    # train and test model
     if train:
-
-        model.to(device)
+        print('training of {} started'.format(model_name))
         model = train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device)
-    
+        print('training ended')
     if test:
+        print('testing started')
         test_results = test_model(model, batch_size, data_dir, device, seed)
-    
+
+        print('testing ended')
+        print('test_results', test_results)
+
+    # dump results in a file
     if dump:
         import csv
 
-        # open the file in the write mode
-        f = open('results.csv', 'w')
+        f = open('results_{}.csv'.format(model_name), 'w+')
 
         header = ['corruption', 'severity', 'test result']
-        # create the csv writer
+
         writer = csv.writer(f)
         writer.writerow(header)
         
@@ -323,6 +340,81 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed, train=True, test=Tr
     # END OF YOUR CODE    #
     #######################
 
+def plotModel(resnet_results, corruptions):
+    
+    # read in resnet dataset and create df
+    data_resnet = pd.read_csv(resnet_results)
+    df_resnet = pd.DataFrame(data_resnet)
+    
+    fig,ax = plt.subplots()
+    
+    # loop over corruptions
+    for i in corruptions:
+        ax.plot(df_resnet[df_resnet.corruption==i].severity,df_resnet[df_resnet.corruption==i].test_result, label=i)
+
+        ax.set_xlabel("severity")
+        ax.set_ylabel("accuracy")
+        ax.legend(loc='best')
+    fig.savefig('plots/resnet18.png')
+
+def plotCE(resnet_results, other_results, corruptions, models, metric='RCE'):
+    
+    # read in resnet dataset and create df
+    data_resnet = pd.read_csv(resnet_results)
+    df_resnet = pd.DataFrame(data_resnet)
+    
+    # initialise dataholder
+    CE = {'corruptions':corruptions}
+    
+    # loop over models
+    for k in range(len(other_results)):
+        # get results model
+        data_other = pd.read_csv(other_results[k])
+        df_other = pd.DataFrame(data_other)
+        
+        # create model result list
+        CE[models[k]] = []
+        
+        # loop over corruptions
+        for i in range(len(corruptions)):
+            # get corruption results for model
+            df = df_resnet[df_resnet["corruption"] == corruptions[i]]
+            df2 = df_other[df_other["corruption"] == corruptions[i]]
+            
+            # calculate error rate
+            error_rate = 1  -  df['test_result']
+            error_rate_other = 1  -  df2['test result']
+            
+            # if RCE
+            if metric == 'RCE':
+                
+                # get clean column
+                clean_resnet = df_resnet[df_resnet["corruption"] == 'vanilla']
+                clean_other = df_other[df_other["corruption"] == 'vanilla']
+                
+                # calculate clean error rate
+                ecr = 1  -  clean_resnet['test_result']
+                eco = 1  -  clean_other['test result']
+                
+                # subtract clean from error rate
+                error_rate = error_rate.subtract(float(ecr)) 
+                error_rate_other = error_rate_other.subtract(float(eco))
+                            
+            # sum
+            resnet18 = error_rate.sum(axis=0)
+            other = error_rate_other.sum(axis=0)
+                        
+            # put metric in list
+            CE[models[k]] += [other/resnet18]
+    
+    final = pd.DataFrame(CE)
+
+    y = [i for i in models]
+    fig = final.plot(x="corruptions", y=y, kind="bar")
+
+    plt.tight_layout()
+    
+    fig.get_figure().savefig('plots/{}.png'.format(metric))
 
 if __name__ == '__main__':
     """
@@ -350,7 +442,31 @@ if __name__ == '__main__':
                         help='Seed to use for reproducing results')
     parser.add_argument('--data_dir', default='data/', type=str,
                         help='Data directory where to store/find the CIFAR10 dataset.')
+    
+    # additional parse arguments
+    parser.add_argument('--plot', default=False, type=bool,
+                        help='Whether to plot or not')
+    parser.add_argument('--metric', default='CE', type=str,
+                        help='metric to use for plotting')
 
     args = parser.parse_args()
-    kwargs = vars(args)
+    kwargs = vars(args) 
     main(**kwargs)
+    
+    if args.plot:
+        PATH_RESNET18 = 'results/results_resnet18.csv'
+        PATH_RESNET34 = 'results/results_resnet34.csv'
+        PATH_VGG11 = 'results/results_vgg11.csv'
+        PATH_VGG11_BN = 'results/results_vgg11_bn.csv'
+        PATH_DENSENET121 = 'results/results_densenet121.csv'
+
+        augmentations = {'gaussian noise':1, 'gaussian blur':2, 'contrast':3, 'jpeg':4}
+        modelNames = ['resnet34', 'vgg11', 'densenet121']
+
+        corruptions = list(augmentations.keys())
+
+        # left out because model not converging
+        # PATH_VGG11_BN,  'vgg11_bn'
+
+        plotCE(PATH_RESNET18, [PATH_RESNET34, PATH_VGG11, PATH_DENSENET121], corruptions, modelNames, metric=args.metric)
+        plotModel(PATH_RESNET18, corruptions)

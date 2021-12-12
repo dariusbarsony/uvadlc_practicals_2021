@@ -20,7 +20,6 @@ import numpy as np
 import torch
 import torch.utils.data as data
 
-
 class TextDataset(data.Dataset):
 
     def __init__(self, filename, seq_length, step_size=10, random_select=True):

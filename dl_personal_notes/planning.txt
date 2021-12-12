@@ -1,0 +1,39 @@
+planning (ans)
+
+1 -- done, besides backward and max pool backward
+
+2a -- severity x-axis, accuracy y axis, for every corruption, including vanilla/no corruption -- final runs
+	- vgg_11, vgg_11_bn, resnet18, resnet34, densenet121
+2b -- CE and RCE, barplots, corruption on x-axis, accuracy on y axis, for every model -- no histogram?
+3a/b -- simplifying is wrong
+	-- explanation in words/limit -- put image in
+4a -- write down explanation of the gates -- final check
+4b -- formula for total number of trainable parameters -- maura? 
+
+- part 2:
+5 -- done
+
+6a -- small loss and accuracy plots
+- moet nog gebeuren, kan snel gefixt worden
+
+results naar lokaal
+plot maken
+
+generate sentences
+generate sentences random sampling
+
+h_t en c_t doorpasen
+
+6b -- generate sentences
+- eerst -- 1 integer, dus niet voor een batch 
+- en geen loop, dus gwn het volgende karakter voorspellen
+
+6c -- sample ipv argmax -- done
+
+part 3:
+- math bro
+
+to-do's
+- RCE plot wrong, -- nog 1 keer naar kijken
+- copy explanation from git to ans
+- debug vgg11_bn

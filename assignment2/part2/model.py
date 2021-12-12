@@ -15,9 +15,9 @@
 ###############################################################################
 
 import math
+import random
 import torch
 import torch.nn as nn
-from torchnlp.encoders.text import SpacyEncoder, pad_tensor
 
 class LSTM(nn.Module):
     """
@@ -35,6 +35,7 @@ class LSTM(nn.Module):
         Define all necessary parameters in the init function as properties of the LSTM class.
         """
         super(LSTM, self).__init__()
+        
         self.hidden_dim = lstm_hidden_dim
         self.embed_dim = embedding_size
 
@@ -96,7 +97,7 @@ class LSTM(nn.Module):
         # END OF YOUR CODE    #
         #######################
 
-    def forward(self, embeds):
+    def forward(self, embeds, states=None):
         """
         Forward pass of LSTM.
 
@@ -109,21 +110,25 @@ class LSTM(nn.Module):
         The output needs to span all time steps, (not just the last one),
         so the output shape is [input length, batch size, hidden dimension].
         """
-        # device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        il, bs, _ = embeds.shape
+        il = embeds.shape[0]
+        bs = embeds.shape[1]
 
         hs = []
 
-        if not self.h_t and not self.c_t:
-            self.h_t = torch.zeros(bs, self.hidden_dim)
-            self.c_t = torch.zeros(bs, self.hidden_dim)
+        device = self.W_ix.device
+
+        if states:
+            self.h_t, self.c_t = states
+        else:
+            self.h_t = torch.zeros(bs, self.hidden_dim, device=device)
+            self.c_t = torch.zeros(bs, self.hidden_dim, device=device)
 
         for t in range(il):
-            x_t = embeds[:, t, :]
+            x_t = embeds[t]
 
             i_t = torch.sigmoid(x_t @ self.W_ix + self.h_t @ self.W_ih + self.b_i)
             f_t = torch.sigmoid(x_t @ self.W_fx + self.h_t @ self.W_fh + self.b_f)
@@ -131,13 +136,12 @@ class LSTM(nn.Module):
 
             g_t = torch.tanh(x_t @ self.W_gx + self.h_t @ self.W_gh + self.b_g)
 
-            c_t = g_t * i_t + c_t * f_t
-            h_t = torch.tanh(c_t) * o_t
+            self.c_t = g_t * i_t + self.c_t * f_t
+            self.h_t = torch.tanh(self.c_t) * o_t
 
-            hs.append(h_t.unsqueeze(0))
+            hs.append(self.h_t.unsqueeze(0))
         
         hs = torch.cat(hs, dim=0)
-        hs = hs.transpose(0, 1).contiguous()
 
         return hs
 
@@ -170,15 +174,26 @@ class TextGenerationModel(nn.Module):
         # PUT YOUR CODE HERE  #
         #######################
 
-        self.vocab_size = args.vocabulary_size
-        self.embed_size = args.embedding_size
+        # batch size, vocabulary size
+        self.batch_size = args.batch_size
+        self.vocabulary_size = args.vocabulary_size
+
+        # embedding size, hidden size
+        self.embedding_size = args.embedding_size 
         self.hidden_size = args.lstm_hidden_dim
-                
-        self.model = LSTM(self.hidden_size, self.embed_size)
-        self.embedding = nn.Embedding(args.vocabulary_size + 1, self.embed_size)
+        
+        # store device
+        self.device = args.device
 
-        self.fc1 = nn.Linear(self.embed_size, 2)
+        # character translations
+        self._ix_to_char = args._ix_to_char
+        self._char_to_ix = args._char_to_ix
 
+        # create model, specify embedding, introduce linear output layer
+        self.model = LSTM(self.hidden_size, self.embedding_size)
+        self.embedding = nn.Embedding(self.vocabulary_size, self.embedding_size)
+        self.fc1 = nn.Linear(self.hidden_size, self.vocabulary_size)
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -210,7 +225,7 @@ class TextGenerationModel(nn.Module):
         # END OF YOUR CODE    #
         #######################
 
-    def sample(self, batch_size=4, sample_length=30, temperature=0.):
+    def sample(self, batch_size=4, sample_length=30, temperature=5):
         """
         Sampling from the text generation model.
 
@@ -227,7 +242,27 @@ class TextGenerationModel(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        start = random.randint(0, self.vocabulary_size + 1)
+        sample_list = [start]
+
+        for _ in range(sample_length):
+
+            # get last character, add dimension, push to device, put into LongTensor
+            input_ = torch.LongTensor([sample_list[-1]]).unsqueeze(-1).to(self.device)
+            out_ = self(input_)
+
+            if temperature:
+                preds = torch.softmax(temperature * out_, dim=2)
+                char = torch.multinomial(preds[-1], num_samples=1, replacement=True)
+            else:
+                preds = torch.softmax(out_, dim=2)
+                char = torch.argmax(preds[-1])
+            sample_list.append(int(char))
+
+        # store samples in model
+        self.sample_list = sample_list
+
         #######################
         # END OF YOUR CODE    #
         #######################
